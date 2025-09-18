@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.4.5</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>tw.fengqing.spring.springbucks</groupId>
+	<artifactId>kafka-waiter-service</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>kafka-waiter-service</name>
+	<description>Demo project for Spring Boot</description>
+
+	<properties>
+		<!-- Java 版本設定 -->
+		<java.version>21</java.version>
+		
+		<!-- Spring Cloud 版本 - 與 Spring Boot 3.4.5 兼容 -->
+		<spring-cloud.version>2024.0.2</spring-cloud.version>
+		
+		<!-- 第三方依賴版本管理 -->
+		<joda-money.version>2.0.2</joda-money.version>
+		<commons-lang3.version>3.14.0</commons-lang3.version>
+		<resilience4j.version>2.2.0</resilience4j.version>
+		<jackson-datatype-hibernate6.version>2.17.0</jackson-datatype-hibernate6.version>
+		<mariadb-java-client.version>3.4.1</mariadb-java-client.version>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-cache</artifactId>
+		</dependency>
+		<!-- Spring Cloud Bootstrap 支援 - 用於 bootstrap.properties 配置 -->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-bootstrap</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+		
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-consul-discovery</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-consul-config</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-stream-kafka</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-spring-boot3</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+		</dependency>
+
+		<!-- Joda Money 貨幣處理庫 -->
+		<dependency>
+			<groupId>org.joda</groupId>
+			<artifactId>joda-money</artifactId>
+		</dependency>
+		<!-- Jackson Hibernate 類型支援 -->
+		<dependency>
+			<groupId>com.fasterxml.jackson.datatype</groupId>
+			<artifactId>jackson-datatype-hibernate6</artifactId>
+		</dependency>
+
+		<!-- Apache Commons Lang3 工具庫 -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+		</dependency>
+
+	<!-- 資料庫連接器 - 使用自定義版本管理 -->
+		<dependency>
+			<groupId>org.mariadb.jdbc</groupId>
+			<artifactId>mariadb-java-client</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		
+		<!-- Lombok 程式碼生成工具 -->
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<dependencyManagement>
+		<dependencies>
+			<!-- Spring Cloud 依賴管理 -->
+			<dependency>
+				<groupId>org.springframework.cloud</groupId>
+				<artifactId>spring-cloud-dependencies</artifactId>
+				<version>${spring-cloud.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			
+			<!-- 第三方依賴版本管理 -->
+			<!-- Joda Money 貨幣處理庫 - 覆蓋 Spring Boot 預設版本以使用最新穩定版 -->
+			<dependency>
+				<groupId>org.joda</groupId>
+				<artifactId>joda-money</artifactId>
+				<version>${joda-money.version}</version>
+			</dependency>
+			
+			<!-- Apache Commons Lang3 工具庫 - 覆蓋 Spring Boot 預設版本 -->
+			<dependency>
+				<groupId>org.apache.commons</groupId>
+				<artifactId>commons-lang3</artifactId>
+				<version>${commons-lang3.version}</version>
+			</dependency>
+			
+			<!-- Resilience4j 熔斷器支援 - 使用與 Spring Boot 3.x 兼容的版本 -->
+			<dependency>
+				<groupId>io.github.resilience4j</groupId>
+				<artifactId>resilience4j-spring-boot3</artifactId>
+				<version>${resilience4j.version}</version>
+			</dependency>
+			
+			<!-- Micrometer Prometheus 監控支援 - 覆蓋 Spring Boot 預設版本 -->
+			<dependency>
+				<groupId>io.micrometer</groupId>
+				<artifactId>micrometer-registry-prometheus</artifactId>
+				<version>${micrometer.version}</version>
+			</dependency>
+			
+			<!-- Jackson Hibernate 類型支援 - 覆蓋 Spring Boot 預設版本 -->
+			<dependency>
+				<groupId>com.fasterxml.jackson.datatype</groupId>
+				<artifactId>jackson-datatype-hibernate6</artifactId>
+				<version>${jackson-datatype-hibernate6.version}</version>
+			</dependency>
+			
+			<!-- MariaDB 連接器依賴管理 - 覆蓋 Spring Boot 預設版本以使用最新穩定版本 -->
+			<dependency>
+				<groupId>org.mariadb.jdbc</groupId>
+				<artifactId>mariadb-java-client</artifactId>
+				<version>${mariadb-java-client.version}</version>
+			</dependency>
+			
+			<!-- Lombok 程式碼生成工具 - 覆蓋 Spring Boot 預設版本 -->
+			<dependency>
+				<groupId>org.projectlombok</groupId>
+				<artifactId>lombok</artifactId>
+				<version>${lombok.version}</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
