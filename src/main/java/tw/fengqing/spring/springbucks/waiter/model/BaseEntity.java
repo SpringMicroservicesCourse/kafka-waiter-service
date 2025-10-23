@@ -21,6 +21,8 @@ import java.util.Date;
 // 增加了jackson-datatype-hibernate6就不需要這個Ignore了
 //@JsonIgnoreProperties(value = {"hibernateLazyInitializer"})
 public class BaseEntity implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 import java.util.function.Consumer;
 
 /**
- * 訂單監聽器 - 處理完成訂單通知
+ * 訂單監聽器 - 處理訂單完成消息
  * 使用 Spring Cloud Stream 函數式編程模型
  */
 @Component
@@ -15,9 +15,9 @@ import java.util.function.Consumer;
 public class OrderListener {
 
     /**
-     * 處理完成訂單的函數式 Bean
-     * 接收完成訂單 ID 並記錄日誌
-     * @return 完成訂單處理函數
+     * 處理訂單完成消息的函數式 Bean
+     * 接收訂單 ID，通知客戶
+     * @return 訂單完成處理函數
      */
     @Bean
     public Consumer<Long> finishedOrders() {

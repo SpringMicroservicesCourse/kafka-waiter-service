@@ -49,7 +49,7 @@ public class CoffeeOrderController {
     }
 
     @PostMapping(path = "/", consumes = MediaType.APPLICATION_JSON_VALUE,
-            produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
+            produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @io.github.resilience4j.ratelimiter.annotation.RateLimiter(name = "order")
     public CoffeeOrder create(@RequestBody NewOrderRequest newOrder) {

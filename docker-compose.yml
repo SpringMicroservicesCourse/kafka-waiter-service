@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   kafka:
     image: confluentinc/cp-kafka:latest
@@ -7,7 +6,7 @@ services:
       - 9092:9092  # 外部訪問端口
     environment:
       # ===== KRaft 模式核心配置 (移除 Zookeeper) =====
-      KAFKA_NODE_ID: 1  # 節點唯一標識符
+      KAFKA_NODE_ID: 1  # 節點唯一標識
       KAFKA_PROCESS_ROLES: 'broker,controller'  # 同時擔任 broker 和 controller 角色
       KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'  # 控制器投票配置
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'  # 控制器監聽器名稱
@@ -26,4 +25,4 @@ services:
       KAFKA_DELETE_TOPIC_ENABLE: 'true'  # 允許刪除主題
       
       # ===== 集群標識 =====
-      CLUSTER_ID: '4L6g3nShT-eMCtK--X86sw'  # 集群唯一標識符 (KRaft 模式必需)
+      CLUSTER_ID: '4L6g3nShT-eMCtK--X86sw'  # 集群唯一標識 (KRaft 模式必需)
