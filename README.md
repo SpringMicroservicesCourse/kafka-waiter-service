@@ -104,10 +104,23 @@ spring.cloud.stream.bindings.finishedOrders-in-0.group=waiter-service
 # Output Binding (Send new orders to barista)
 spring.cloud.stream.bindings.newOrders-out-0.destination=newOrders
 
-# Rate Limiter Configuration
+# Custom Configuration Property (for StreamBridge.send)
+stream.bindings.new-orders-binding=newOrders-out-0
+
+# ===== Resilience4j Rate Limiter Configuration =====
+# Coffee instance configuration (for coffee query endpoints)
+resilience4j.ratelimiter.instances.coffee.limit-for-period=5
+resilience4j.ratelimiter.instances.coffee.limit-refresh-period=30000
+resilience4j.ratelimiter.instances.coffee.timeout-duration=5000
+resilience4j.ratelimiter.instances.coffee.subscribe-for-events=true
+resilience4j.ratelimiter.instances.coffee.register-health-indicator=true
+
+# Order instance configuration (for order creation endpoints)
 resilience4j.ratelimiter.instances.order.limit-for-period=3
-resilience4j.ratelimiter.instances.order.limit-refresh-period=30s
-resilience4j.ratelimiter.instances.order.timeout-duration=1s
+resilience4j.ratelimiter.instances.order.limit-refresh-period=30000
+resilience4j.ratelimiter.instances.order.timeout-duration=1000
+resilience4j.ratelimiter.instances.order.subscribe-for-events=true
+resilience4j.ratelimiter.instances.order.register-health-indicator=true
 ```
 
 ### Configuration Highlights
@@ -116,8 +129,36 @@ resilience4j.ratelimiter.instances.order.timeout-duration=1s
 |----------|-------|-------------|
 | `spring.cloud.stream.kafka.binder.brokers` | localhost | Kafka broker address |
 | `spring.cloud.function.definition` | finishedOrders | Function beans to bind |
-| `limit-for-period` | 3 | Max 3 requests per period |
-| `limit-refresh-period` | 30s | Refresh period duration |
+| `stream.bindings.new-orders-binding` | newOrders-out-0 | Custom binding name for StreamBridge |
+
+### Rate Limiter Configuration Details
+
+**Two Rate Limiter Instances:**
+
+| Configuration | coffee Instance | order Instance | Description |
+|--------------|----------------|----------------|-------------|
+| **limit-for-period** | 5 | 3 | Max requests allowed per refresh period |
+| **limit-refresh-period** | 30000ms (30s) | 30000ms (30s) | Rate limiter refresh period |
+| **timeout-duration** | 5000ms (5s) | 1000ms (1s) | Max wait time for permission |
+| **subscribe-for-events** | true | true | Subscribe to rate limiter events (for monitoring) |
+| **register-health-indicator** | true | true | Register health indicator to Actuator |
+
+**Instance Usage:**
+- **coffee instance**: Protects coffee query endpoints (GET /coffee/), more lenient (5 requests/30s, 5s wait)
+- **order instance**: Protects order creation endpoint (POST /order/), stricter (3 requests/30s, 1s wait)
+
+**Configuration Format Options:**
+```properties
+# Option 1: Milliseconds (explicit)
+limit-refresh-period=30000   # 30000ms = 30s
+timeout-duration=5000        # 5000ms = 5s
+
+# Option 2: Time units (recommended for readability)
+limit-refresh-period=30s     # 30 seconds
+timeout-duration=5s          # 5 seconds
+```
+
+Both formats are functionally equivalent. Using time units (30s, 5s) is recommended for better readability
 
 ### Consul Discovery
 
@@ -232,32 +273,97 @@ public class CoffeeOrderService {
 
 ### 3. Rate Limiting with Resilience4j
 
+**Two Rate Limiter Instances:**
+- **coffee**: For coffee query endpoints (5 requests/30s)
+- **order**: For order creation endpoint (3 requests/30s)
+
 **Annotation-Based (Controller):**
+
+**Coffee Controller (lenient rate limiting):**
+```java
+@RestController
+@RequestMapping("/coffee")
+public class CoffeeController {
+    
+    @GetMapping("/")
+    @RateLimiter(name = "coffee")  // ← 5 requests/30s
+    public List<Coffee> getAll() {
+        // ... query all coffees ...
+    }
+    
+    @GetMapping("/{id}")
+    @RateLimiter(name = "coffee")  // ← 5 requests/30s
+    public Coffee getById(@PathVariable Long id) {
+        // ... query coffee by ID ...
+    }
+}
+```
+
+**Order Controller (strict rate limiting):**
 ```java
 @RestController
 @RequestMapping("/order")
 public class CoffeeOrderController {
     
     @PostMapping("/")
-    @RateLimiter(name = "order")  // ← Declarative rate limiting
+    @RateLimiter(name = "order")  // ← 3 requests/30s, 1s timeout
     public CoffeeOrder create(@RequestBody NewOrderRequest newOrder) {
         // ... order creation logic ...
     }
 }
 ```
 
-**Programmatic (Service):**
+**Programmatic (with explicit instance):**
 ```java
-@GetMapping("/{id}")
-public CoffeeOrder getOrder(@PathVariable("id") Long id) {
-    CoffeeOrder order = null;
-    try {
-        order = rateLimiter.executeSupplier(() -> orderService.get(id));
-    } catch(RequestNotPermitted e) {
-        log.warn("Request Not Permitted! {}", e.getMessage());
+@RestController
+@RequestMapping("/order")
+public class CoffeeOrderController {
+    private io.github.resilience4j.ratelimiter.RateLimiter rateLimiter;
+    
+    public CoffeeOrderController(RateLimiterRegistry rateLimiterRegistry) {
+        this.rateLimiter = rateLimiterRegistry.rateLimiter("order");
     }
-    return order;
+    
+    @GetMapping("/{id}")
+    public CoffeeOrder getOrder(@PathVariable("id") Long id) {
+        CoffeeOrder order = null;
+        try {
+            order = rateLimiter.executeSupplier(() -> orderService.get(id));
+        } catch(RequestNotPermitted e) {
+            log.warn("Request Not Permitted! {}", e.getMessage());
+        }
+        return order;
+    }
 }
+```
+
+**Rate Limiting Behavior:**
+
+| Scenario | coffee instance | order instance |
+|----------|----------------|----------------|
+| **Max requests** | 5 per 30 seconds | 3 per 30 seconds |
+| **Timeout** | Wait up to 5s | Wait up to 1s |
+| **On limit exceeded** | `RequestNotPermitted` exception | `RequestNotPermitted` exception |
+| **Recovery** | Automatic after refresh period | Automatic after refresh period |
+
+**Testing Rate Limiting:**
+```bash
+# Test coffee endpoint (should succeed 5 times, then fail)
+for i in {1..7}; do
+  echo "Request $i:"
+  curl -w "\nHTTP Status: %{http_code}\n" http://localhost:8080/coffee/
+  sleep 1
+done
+
+# Test order endpoint (should succeed 3 times, then fail)
+for i in {1..5}; do
+  echo "Request $i:"
+  curl -w "\nHTTP Status: %{http_code}\n" \
+    -X POST http://localhost:8080/order/ \
+    -H "Content-Type: application/json" \
+    -d '{"customer":"Test","items":["latte"]}'
+  sleep 1
+done
 ```
 
 ## Docker Infrastructure
@@ -324,12 +430,68 @@ curl http://localhost:8080/actuator/health
 
 ### Rate Limiter Metrics
 
+**Check available permissions (coffee instance):**
 ```bash
-# Check available permissions
-curl http://localhost:8080/actuator/metrics/resilience4j.ratelimiter.available.permissions
+curl http://localhost:8080/actuator/metrics/resilience4j.ratelimiter.available.permissions?tag=name:coffee
+```
 
-# Check waiting threads
-curl http://localhost:8080/actuator/metrics/resilience4j.ratelimiter.waiting_threads
+**Response:**
+```json
+{
+  "name": "resilience4j.ratelimiter.available.permissions",
+  "measurements": [
+    {
+      "statistic": "VALUE",
+      "value": 5.0
+    }
+  ],
+  "availableTags": [
+    {
+      "tag": "name",
+      "values": ["coffee", "order"]
+    }
+  ]
+}
+```
+
+**Check available permissions (order instance):**
+```bash
+curl http://localhost:8080/actuator/metrics/resilience4j.ratelimiter.available.permissions?tag=name:order
+```
+
+**Check waiting threads:**
+```bash
+curl http://localhost:8080/actuator/metrics/resilience4j.ratelimiter.waiting_threads?tag=name:coffee
+curl http://localhost:8080/actuator/metrics/resilience4j.ratelimiter.waiting_threads?tag=name:order
+```
+
+**Rate Limiter Health Check:**
+```bash
+curl http://localhost:8080/actuator/health
+```
+
+**Response (includes rate limiter status):**
+```json
+{
+  "status": "UP",
+  "components": {
+    "rateLimiters": {
+      "status": "UP",
+      "details": {
+        "coffee": {
+          "status": "UP",
+          "availablePermissions": 5,
+          "numberOfWaitingThreads": 0
+        },
+        "order": {
+          "status": "UP",
+          "availablePermissions": 3,
+          "numberOfWaitingThreads": 0
+        }
+      }
+    }
+  }
+}
 ```
 
 ### Stream Bindings
