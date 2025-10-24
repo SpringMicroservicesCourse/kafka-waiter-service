@@ -1,7 +1,8 @@
 services:
-  kafka:
+  kafka-spring-course:
     image: confluentinc/cp-kafka:latest
-    container_name: spring-kafka
+    container_name: kafka-spring-course
+    hostname: kafka  # 設置主機名，與配置中的 kafka:29092 一致
     ports:
       - 9092:9092  # 外部訪問端口
     environment:
